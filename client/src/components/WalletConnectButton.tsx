@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { connectWallet, getWalletAddress, isFreighterAvailable } from "@/hooks/contract";
+import { connectWallet, getWalletAddress, checkFreighterAvailable } from "@/hooks/contract";
 
 interface WalletConnectButtonProps {
   onAddressChange?: (address: string | null) => void;
@@ -10,9 +10,33 @@ interface WalletConnectButtonProps {
 export default function WalletConnectButton({ onAddressChange }: WalletConnectButtonProps) {
   const [address, setAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [freighterAvailable, setFreighterAvailable] = useState(false);
+  const [checkingFreighter, setCheckingFreighter] = useState(true);
 
   useEffect(() => {
     getWalletAddress().then(setAddress);
+  }, []);
+
+  // Reactive Freighter detection — polls every 2s so the UI updates
+  // when the user installs the extension without a page refresh
+  useEffect(() => {
+    let cancelled = false;
+
+    const check = async () => {
+      const available = await checkFreighterAvailable();
+      if (!cancelled) {
+        setFreighterAvailable(available);
+        setCheckingFreighter(false);
+      }
+    };
+
+    check();
+    const interval = setInterval(check, 2000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   const handleConnect = async () => {
@@ -31,7 +55,19 @@ export default function WalletConnectButton({ onAddressChange }: WalletConnectBu
   const truncateAddress = (addr: string) =>
     `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
-  if (!isFreighterAvailable()) {
+  if (checkingFreighter) {
+    return (
+      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-400 text-sm">
+        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        Checking wallet...
+      </div>
+    );
+  }
+
+  if (!freighterAvailable) {
     return (
       <a
         href="https://www.freighter.app/"

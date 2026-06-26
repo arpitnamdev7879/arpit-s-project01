@@ -59,9 +59,19 @@ export async function getWalletAddress(): Promise<string | null> {
   }
 }
 
-// Check if wallet is Freighter
+// Check if wallet is Freighter (synchronous check, use as fallback)
 export function isFreighterAvailable(): boolean {
   return typeof window !== "undefined" && "freighter" in window;
+}
+
+// Async check — more reliable, uses freighter-api's isConnected()
+export async function checkFreighterAvailable(): Promise<boolean> {
+  try {
+    await isConnected();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ========================
